@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Guardianes del Planeta — Juego</title>
+<style>
+  :root{--bg:#f0fcf3;--card:#ffffff;--accent:#2e8b57;--muted:#4b5563}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter, system-ui, Arial;background:var(--bg);color:#032a1f;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .wrap{width:100%;max-width:760px}
+  header{background:linear-gradient(90deg,var(--accent),#06847a);color:white;padding:18px;border-radius:12px}
+  header h1{margin:0;font-size:20px}
+  .card{background:var(--card);padding:20px;border-radius:12px;box-shadow:0 6px 20px rgba(3,7,18,0.06);margin-top:16px}
+  .meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .question{font-weight:700;margin:14px 0;font-size:18px}
+  .options{display:grid;gap:10px}
+  .btn{background:var(--accent);color:white;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:700}
+  .smallbtn{background:transparent;border:1px solid rgba(0,0,0,0.06);padding:8px 10px;border-radius:8px;cursor:pointer}
+  .status{margin-top:12px;font-weight:700}
+  .feedback{margin-top:12px;padding:12px;border-radius:8px;background:#eefaf4;color:#03402b;display:none}
+  .wrong{background:#fff0f0;color:#6b0b0b}
+  .progress{height:10px;background:#e6f3ee;border-radius:10px;overflow:hidden}
+  .progress > i{display:block;height:100%;background:linear-gradient(90deg,#06b6a4,#065f46);width:0%}
+  .footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+  .hidden{display:none}
+  .center{text-align:center}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🌱 Guardianes del Planeta</h1>
+      <div style="font-size:13px;opacity:0.95">Juego educativo — 3 vidas • 10 preguntas</div>
+    </header>
+
+    <div class="card" id="gameCard">
+      <div class="meta">
+        <div>Puntos: <span id="score">0</span></div>
+        <div>Vidas: <span id="lives">3</span></div>
+        <div>Pregunta <span id="current">0</span>/<span id="total">10</span></div>
+      </div>
+
+      <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+
+      <div class="question" id="question">Pulsa "Comenzar" para iniciar</div>
+      <div class="options" id="options"></div>
+
+      <div class="feedback" id="feedback"></div>
+
+      <div class="footer">
+        <button class="smallbtn" id="hintBtn">Mostrar pista</button>
+        <button class="btn" id="startBtn">Comenzar</button>
+        <button class="btn hidden" id="nextBtn">Siguiente</button>
+      </div>
+    </div>
+
+    <div class="card center hidden" id="endCard" style="margin-top:12px">
+      <h2 id="endTitle">Resultado</h2>
+      <p id="endText"></p>
+      <div style="margin-top:12px">
+        <button class="btn" id="restartBtn">Jugar de nuevo</button>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--muted);margin-top:10px" class="center">Comparte el link para que otros jueguen en su navegador (sin descargar nada).</p>
+  </div>
+
+<script>
+const questions = [
+  {q:"Terminas de tomar agua en una botella plástica. ¿Qué haces?", opts:["La boto a la calle","La guardo para reciclarla","La quemo en el patio"], answer:1, hint:"Reciclar reduce la basura y ahorra recursos."},
+  {q:"Vas a salir de tu cuarto, ¿qué debes hacer?", opts:["Dejar la luz prendida","Apagar la luz","Abrir la nevera para iluminar"], answer:1, hint:"Apagar luces ahorra energía y emisiones."},
+  {q:"La tienda está a 5 cuadras. ¿Cómo vas?", opts:["Voy en carro","Voy en bicicleta o caminando","Pido que me lleven en moto"], answer:1, hint:"Caminando o en bici reduces contaminación."},
+  {q:"Tienes restos de comida, ¿dónde van mejor?", opts:["A la basura común","Al contenedor de reciclaje","Al compost o abono si es orgánico"], answer:2, hint:"El compost transforma residuos en alimento para plantas."},
+  {q:"Quieres comprar ropa nueva: ¿qué opción es más sustentable?", opts:["Comprar siempre ropa barata nueva","Buscar ropa de segunda mano o de buena calidad","Comprar sin fijarme en materiales"], answer:1, hint:"La ropa de segunda mano reduce producción y residuos."},
+  {q:"En casa usan agua para lavar el carro con manguera todo el día, ¿qué recomiendas?", opts:["Usar cubeta y esponja","Seguir con la manguera encendida","Lavarlo en la calle con agua de la ciudad"], answer:0, hint:"Usar cubeta ahorra mucha agua."},
+  {q:"¿Qué material tarda más en degradarse?", opts:["Cáscara de plátano","Botella de plástico","Papel"], answer:1, hint:"El plástico puede tardar cientos de años en degradarse."},
+  {q:"¿Qué podemos hacer con las pilas usadas?", opts:["Tirarlas al río","Llevarlas a un punto de reciclaje","Guardarlas en casa"], answer:1, hint:"Las pilas contienen sustancias tóxicas; reciclarlas evita contaminación."},
+  {q:"¿Qué significa la regla de las 3R?", opts:["Reutilizar, Reciclar, Reducir","Reír, Rezar, Recordar","Rendir, Rodar, Romper"], answer:0, hint:"Reduce, Reutiliza y Recicla son las 3R."},
+  {q:"¿Por qué es importante plantar árboles?", opts:["Dan oxígeno y reducen CO2","Se ven bonitos","Sirven de sombra solamente"], answer:0, hint:"Los árboles absorben CO2 y conservan la biodiversidad."}
+];
+
+let current = 0;
+let score = 0;
+let lives = 3;
+
+const total = questions.length;
+document.getElementById('total').textContent = total;
+
+const el = id => document.getElementById(id);
+const optionsEl = el('options');
+const feedbackEl = el('feedback');
+const progressBar = el('progressBar');
+
+function renderProgress(){
+  const percent = Math.round((current/total)*100);
+  progressBar.style.width = percent + "%";
+}
+
+function startGame(){
+  current = 0; score = 0; lives = 3;
+  el('score').textContent = score;
+  el('lives').textContent = lives;
+  el('startBtn').classList.add('hidden');
+  el('nextBtn').classList.remove('hidden');
+  el('hintBtn').disabled = false;
+  el('gameCard').classList.remove('hidden');
+  el('endCard').classList.add('hidden');
+  feedbackEl.style.display = 'none';
+  loadQuestion();
+}
+
+function loadQuestion(){
+  if(lives <= 0){
+    gameOver();
+    return;
+  }
+  if(current >= total){
+    finishGame();
+    return;
+  }
+  renderProgress();
+  const item = questions[current];
+  el('current').textContent = current+1;
+  el('question').textContent = item.q;
+  optionsEl.innerHTML = '';
+  item.opts.forEach((opt,i)=>{
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.style.background = '#fff';
+    b.style.color = '#032a1f';
+    b.style.border = '1px solid rgba(0,0,0,0.06)';
+    b.textContent = String.fromCharCode(65+i)+". "+opt;
+    b.onclick = ()=> choose(i,b);
+    optionsEl.appendChild(b);
+  });
+  feedbackEl.style.display = 'none';
+  el('hintBtn').disabled = false;
+}
+
+function choose(index, btn){
+  const item = questions[current];
+  // disable all buttons
+  Array.from(optionsEl.children).forEach(ch=>ch.disabled=true);
+  if(index === item.answer){
+    score++;
+    el('score').textContent = score;
+    showFeedback(true, "¡Correcto! " + item.hint);
+  } else {
+    lives--;
+    el('lives').textContent = lives;
+    showFeedback(false, "Incorrecto. " + item.hint + " — Te quedan " + lives + " vida(s).");
+  }
+  current++;
+  updateAfterAnswer();
+}
+
+function showFeedback(ok, message){
+  feedbackEl.style.display = 'block';
+  feedbackEl.textContent = message;
+  feedbackEl.className = 'feedback' + (ok ? '' : ' wrong');
+}
+
+function updateAfterAnswer(){
+  renderProgress();
+  el('hintBtn').disabled = true;
+  // if lives over or finished, update next button text
+  if(lives <= 0 || current >= total){
+    el('nextBtn').textContent = 'Finalizar';
+  } else {
+    el('nextBtn').textContent = 'Siguiente';
+  }
+}
+
+el('nextBtn').addEventListener('click', ()=>{
+  if(lives <= 0){
+    gameOver();
+    return;
+  }
+  if(current >= total){
+    finishGame();
+    return;
+  }
+  loadQuestion();
+});
+
+el('hintBtn').addEventListener('click', ()=>{
+  const item = questions[current];
+  if(item && item.hint){
+    showFeedback(true, "Pista: " + item.hint);
+    el('hintBtn').disabled = true;
+  }
+});
+
+el('startBtn').addEventListener('click', startGame);
+el('restartBtn').addEventListener('click', startGame);
+
+function gameOver(){
+  el('gameCard').classList.add('hidden');
+  el('endCard').classList.remove('hidden');
+  el('endTitle').textContent = "💀 Game Over";
+  el('endText').textContent = "Te quedaste sin vidas. Puntos: " + score + " / " + total;
+}
+
+function finishGame(){
+  el('gameCard').classList.add('hidden');
+  el('endCard').classList.remove('hidden');
+  el('endTitle').textContent = "🎉 ¡Juego terminado!";
+  el('endText').textContent = "Puntos: " + score + " / " + total + ". Vidas restantes: " + lives;
+}
+</script>
+</body>
+</html>
